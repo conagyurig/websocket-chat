@@ -15,3 +15,8 @@ type CreateUserWithOptionRequest struct {
 type CreateRoomRequest struct {
 	RoomName string `json:"roomName"`
 }
+
+type CreateAvailabilityRequest struct {
+	RoomID string   `json:"roomID"`
+	Dates  []string `json:"dates"`
+}

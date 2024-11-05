@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"websocket-chat/internal/handlers"
+	"websocket-chat/internal/middleware"
 	"websocket-chat/internal/utils"
 	"websocket-chat/internal/websocket"
 
@@ -23,14 +24,18 @@ func main() {
 	go hub.Run()
 
 	router := mux.NewRouter()
+
+	router.HandleFunc("/userOption", handlers.CreateUserWithOption(hub, sqlStore)).Methods("POST")
+	router.HandleFunc("/rooms", handlers.CreateRoom(sqlStore)).Methods("POST")
 	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		handlers.ServeWS(hub, w, r)
 	})
 
-	router.HandleFunc("/rooms", handlers.CreateRoom(sqlStore)).Methods("POST")
-	router.HandleFunc("/users", handlers.CreateUser(sqlStore)).Methods("POST")
-	router.HandleFunc("/userOption", handlers.CreateUserWithOption(hub, sqlStore)).Methods("POST")
-	router.HandleFunc("/roomState", handlers.GetRoomState(sqlStore)).Methods("GET")
+	protected := router.PathPrefix("/").Subrouter()
+	protected.Use(middleware.JWTAuthMiddleware)
+	protected.HandleFunc("/userAvailability", handlers.CreateAvailability(sqlStore)).Methods("POST")
+	protected.HandleFunc("/roomState", handlers.GetRoomState(sqlStore)).Methods("GET")
+	protected.HandleFunc("/dates", handlers.GetDates(sqlStore)).Methods("GET")
 
 	corsRouter := enableCORS(router)
 

@@ -99,7 +99,7 @@ func (s *SQLStore) CreateOption(roomID, userID, content string) (*models.Option,
 
 	_, err := s.DB.ExecContext(context.Background(), query, option.OptionID, option.RoomID, option.UserID, option.Content)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create room: %w", err)
+		return nil, fmt.Errorf("failed to create option: %w", err)
 	}
 
 	return option, nil
@@ -133,7 +133,7 @@ func (s *SQLStore) CreateVote(optionID, userID string) (*models.Vote, error) {
 
 	_, err := s.DB.ExecContext(context.Background(), query, vote.VoteID, vote.OptionID, vote.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create room: %w", err)
+		return nil, fmt.Errorf("failed to create vote: %w", err)
 	}
 
 	return vote, nil
@@ -257,7 +257,7 @@ func (s *SQLStore) GetVotesByRoomID(roomID string) ([]models.Vote, error) {
 }
 
 func (s *SQLStore) GetOptionByUserID(userID string) ([]models.Option, error) {
-	query := `SELECT OptionID, UserID, Content FROM Options WHERE UserID = ?;`
+	query := `SELECT OptionID, RoomID, Content FROM Options WHERE UserID = ?;`
 
 	rows, err := s.DB.Query(query, userID)
 	if err != nil {
@@ -268,11 +268,11 @@ func (s *SQLStore) GetOptionByUserID(userID string) ([]models.Option, error) {
 	var options []models.Option
 	for rows.Next() {
 		var option models.Option
-		err := rows.Scan(&option.OptionID, &option.UserID, &option.Content)
+		err := rows.Scan(&option.OptionID, &option.RoomID, &option.Content)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan option: %w", err)
 		}
-		option.RoomID = userID
+		option.UserID = userID
 		options = append(options, option)
 	}
 	return options, nil
@@ -354,4 +354,82 @@ func (s *SQLStore) ChangeOption(userID, roomID, newContent string) error {
 	}
 
 	return nil
+}
+
+func (s *SQLStore) CreateDate(roomID, userID, dateContent string) (*models.Date, error) {
+	dateID := uuid.New().String()
+
+	date := &models.Date{
+		DateID: dateID,
+		RoomID: roomID,
+		UserID: userID,
+		Date:   dateContent,
+	}
+	query := `INSERT INTO Dates (DateID, RoomID, UserID, Date) VALUES (?, ?, ?, ?);`
+
+	_, err := s.DB.ExecContext(context.Background(), query, date.DateID, date.RoomID, date.UserID, date.Date)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create date: %w", err)
+	}
+
+	return date, nil
+}
+
+func (s *SQLStore) GetDateByUserID(userID string) ([]models.Date, error) {
+	query := `SELECT DateID, RoomID, Date FROM Dates WHERE UserID = ?;`
+
+	rows, err := s.DB.Query(query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dates: %w", err)
+	}
+	defer rows.Close()
+
+	var dates []models.Date
+	for rows.Next() {
+		var date models.Date
+		err := rows.Scan(&date.DateID, &date.RoomID, &date.Date)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan date: %w", err)
+		}
+		date.UserID = userID
+		dates = append(dates, date)
+	}
+	return dates, nil
+}
+
+func (s *SQLStore) GetDatesByRoomID(roomID string) (*models.RoomDatesResponse, error) {
+	users, err := s.GetUsersByRoomID(roomID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users for room %s: %w", roomID, err)
+	}
+	dateWithUsersList := []models.DateWithUsers{}
+
+	for _, user := range users {
+		dates, err := s.GetDateByUserID(user.UserID)
+		if err != nil {
+			fmt.Println("err")
+			return nil, fmt.Errorf("failed to get dates for user %s: %w", user.UserID, err)
+		}
+		for _, date := range dates {
+			found := false
+			for i, dateWithUsers := range dateWithUsersList {
+				if dateWithUsers.Date == date.Date {
+					dateWithUsersList[i].Users = append(dateWithUsersList[i].Users, user)
+					found = true
+					break
+				}
+			}
+			if !found {
+				dateWithUsersList = append(dateWithUsersList, models.DateWithUsers{
+					Date:  date.Date,
+					Users: []models.User{user},
+				})
+			}
+		}
+	}
+
+	return &models.RoomDatesResponse{
+		RoomID: roomID,
+		Dates:  dateWithUsersList,
+	}, nil
 }

@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"websocket-chat/internal/utils"
 	ws "websocket-chat/internal/websocket"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/websocket"
 )
 
@@ -15,7 +17,25 @@ var upgrader = websocket.Upgrader{
 
 func ServeWS(hub *ws.Hub, w http.ResponseWriter, r *http.Request) {
 	roomID := r.URL.Query().Get("roomID")
-	userID := r.URL.Query().Get("userID")
+	tokenString := r.URL.Query().Get("token")
+
+	if tokenString == "" {
+		http.Error(w, "Authorization token required", http.StatusUnauthorized)
+		return
+	}
+
+	claims := &utils.Claims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return utils.JwtKey, nil
+	})
+
+	if err != nil || !token.Valid {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	userID := claims.UserID
 
 	room, err := hub.SqlStore.GetRoomByID(roomID)
 	if err != nil {

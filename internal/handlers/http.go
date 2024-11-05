@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"websocket-chat/internal/store"
+	"websocket-chat/internal/utils"
 	ws "websocket-chat/internal/websocket"
 )
 
@@ -87,6 +88,12 @@ func CreateUserWithOption(hub *ws.Hub, sqlStore *store.SQLStore) http.HandlerFun
 			}
 		}
 
+		token, err := utils.GenerateJWT(user.UserID, user.RoomID)
+		if err != nil {
+			http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+			return
+		}
+
 		room, _ := sqlStore.GetFullRoomState(req.RoomID)
 		hub.Broadcast <- ws.BroadcastMessage{
 			RoomID:  req.RoomID,
@@ -94,7 +101,36 @@ func CreateUserWithOption(hub *ws.Hub, sqlStore *store.SQLStore) http.HandlerFun
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(user)
+		json.NewEncoder(w).Encode(token)
+	}
+}
+
+func CreateAvailability(sqlStore *store.SQLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req CreateAvailabilityRequest
+
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		userID := r.Context().Value("userID").(string)
+
+		if req.RoomID == "" || userID == "" || req.Dates == nil {
+			http.Error(w, "roomID and userID and dates are required", http.StatusBadRequest)
+			return
+		}
+
+		for _, date := range req.Dates {
+			_, err := sqlStore.CreateDate(req.RoomID, userID, date)
+			if err != nil {
+				http.Error(w, "Failed to create user", http.StatusInternalServerError)
+				return
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Availability created successfully"))
 	}
 }
 
@@ -107,5 +143,17 @@ func GetRoomState(sqlStore *store.SQLStore) http.HandlerFunc {
 			return
 		}
 		json.NewEncoder(w).Encode(room)
+	}
+}
+
+func GetDates(sqlStore *store.SQLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		roomID := r.URL.Query().Get("roomID")
+		results, err := sqlStore.GetDatesByRoomID(roomID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(results)
 	}
 }
