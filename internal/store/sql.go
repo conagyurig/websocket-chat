@@ -177,10 +177,11 @@ func (s *SQLStore) GetFullRoomState(roomID string) (*FullRoomStateMessage, error
 	}
 
 	fullState := &FullRoomStateMessage{
-		RoomName: room.Name,
-		Users:    users,
-		Options:  options,
-		Votes:    votes,
+		RoomName:    room.Name,
+		Users:       users,
+		Options:     options,
+		Votes:       votes,
+		RevealVotes: false,
 	}
 
 	return fullState, nil

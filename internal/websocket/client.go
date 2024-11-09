@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"websocket-chat/internal/models"
 
@@ -28,6 +29,7 @@ func (c *Client) ReadPump(hub *Hub) {
 			}
 			break
 		}
+		fmt.Printf(string(messageData))
 
 		var baseMsg BaseMessage
 		err = json.Unmarshal(messageData, &baseMsg)
@@ -53,6 +55,8 @@ func (c *Client) ReadPump(hub *Hub) {
 				continue
 			}
 			c.handleVote(hub, voteMsg)
+		case "revealVotes":
+			c.handleRevealVotes(hub)
 		default:
 			log.Printf("Unknown message type: %s", baseMsg.Type)
 		}
@@ -156,5 +160,27 @@ func (c *Client) handleVote(hub *Hub, msg VoteMessage) {
 	hub.Broadcast <- BroadcastMessage{
 		RoomID:  c.RoomID,
 		Message: *fullRoomStateMsg,
+	}
+
+}
+
+func (c *Client) handleRevealVotes(hub *Hub) {
+	fullRoomStateMsg, err := hub.SqlStore.GetFullRoomState(c.RoomID)
+	if err != nil {
+		errorMsg := struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		}{
+			Type:    "error",
+			Message: "Failed to get room state",
+		}
+		c.Send <- errorMsg
+		return
+	}
+	fullRoomStateMsg.RevealVotes = true
+	fmt.Println(fullRoomStateMsg)
+	hub.Broadcast <- BroadcastMessage{
+		RoomID:  c.RoomID,
+		Message: fullRoomStateMsg,
 	}
 }
