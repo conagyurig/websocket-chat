@@ -21,7 +21,7 @@ func GenerateJWT(userID string, roomID string) (string, error) {
 		RoomID: roomID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "WhenRU3",
-			ExpiresAt: &jwt.NumericDate{Time: now.Add(time.Hour * 24)},
+			ExpiresAt: &jwt.NumericDate{Time: now.Add(time.Hour * 360)},
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
