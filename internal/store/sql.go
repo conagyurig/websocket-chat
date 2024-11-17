@@ -453,7 +453,6 @@ func (s *SQLStore) GetDatesByRoomID(roomID string) (*models.RoomDatesResponse, e
 	for _, user := range users {
 		dates, err := s.GetDateByUserID(user.UserID)
 		if err != nil {
-			fmt.Println("err")
 			return nil, fmt.Errorf("failed to get dates for user %s: %w", user.UserID, err)
 		}
 		for _, date := range dates {

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"websocket-chat/internal/store"
@@ -128,7 +127,6 @@ func UpdateUserWithOption(hub *ws.Hub, sqlStore *store.SQLStore) http.HandlerFun
 			http.Error(w, "Failed to update user", http.StatusInternalServerError)
 			return
 		}
-		fmt.Println("created user")
 
 		if len(req.OptionContent) > 0 {
 			err = sqlStore.ChangeOption(userID, req.RoomID, req.OptionContent)

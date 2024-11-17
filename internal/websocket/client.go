@@ -178,7 +178,6 @@ func (c *Client) handleRevealVotes(hub *Hub) {
 		return
 	}
 	fullRoomStateMsg.RevealVotes = true
-	fmt.Println(fullRoomStateMsg)
 	hub.Broadcast <- BroadcastMessage{
 		RoomID:  c.RoomID,
 		Message: fullRoomStateMsg,
