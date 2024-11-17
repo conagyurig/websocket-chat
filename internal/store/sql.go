@@ -357,6 +357,39 @@ func (s *SQLStore) ChangeOption(userID, roomID, newContent string) error {
 	return nil
 }
 
+func (s *SQLStore) ChangeUserName(userID, roomID, newName string) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var existingUserID string
+	err = tx.QueryRow(`
+        SELECT UserID FROM Users WHERE UserID = ?
+    `, userID).Scan(&existingUserID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("failed to find user: %w", err)
+		} else {
+			return fmt.Errorf("failed to check existing user: %w", err)
+		}
+	} else {
+		_, err = tx.Exec(`
+            UPDATE Users SET DisplayName = ? WHERE UserID = ?
+        `, newName, existingUserID)
+		if err != nil {
+			return fmt.Errorf("failed to update user: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 func (s *SQLStore) CreateDate(roomID, userID, dateContent string) (*models.Date, error) {
 	dateID := uuid.New().String()
 
@@ -374,6 +407,18 @@ func (s *SQLStore) CreateDate(roomID, userID, dateContent string) (*models.Date,
 	}
 
 	return date, nil
+}
+
+func (s *SQLStore) DeleteUserDates(roomID, userID string) error {
+
+	query := `DELETE FROM Dates WHERE UserID = ? AND RoomID = ?;`
+
+	_, err := s.DB.ExecContext(context.Background(), query, userID, roomID)
+	if err != nil {
+		return fmt.Errorf("failed to create date: %w", err)
+	}
+
+	return nil
 }
 
 func (s *SQLStore) GetDateByUserID(userID string) ([]models.Date, error) {

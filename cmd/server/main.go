@@ -33,6 +33,7 @@ func main() {
 
 	protected := router.PathPrefix("/").Subrouter()
 	protected.Use(middleware.JWTAuthMiddleware)
+	protected.HandleFunc("/userOption", handlers.UpdateUserWithOption(hub, sqlStore)).Methods("PUT")
 	protected.HandleFunc("/userAvailability", handlers.CreateAvailability(sqlStore)).Methods("POST")
 	protected.HandleFunc("/roomState", handlers.GetRoomState(sqlStore)).Methods("GET")
 	protected.HandleFunc("/dates", handlers.GetDates(sqlStore)).Methods("GET")
