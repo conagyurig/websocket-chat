@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"websocket-chat/internal/models"
 
@@ -14,6 +13,19 @@ type Client struct {
 	Send   chan interface{}
 	RoomID string
 	User   *models.User
+}
+
+type ErrorMessage struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
+func sendError(c *Client, message string) {
+	errorMsg := ErrorMessage{
+		Type:    "error",
+		Message: message,
+	}
+	c.Send <- errorMsg
 }
 
 func (c *Client) ReadPump(hub *Hub) {
@@ -29,7 +41,6 @@ func (c *Client) ReadPump(hub *Hub) {
 			}
 			break
 		}
-		fmt.Printf(string(messageData))
 
 		var baseMsg BaseMessage
 		err = json.Unmarshal(messageData, &baseMsg)
@@ -75,40 +86,19 @@ func (c *Client) WritePump() {
 
 func (c *Client) handleAddOption(hub *Hub, msg AddOptionMessage) {
 	if msg.Content == "" {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Content cannot be empty",
-		}
-		c.Send <- errorMsg
+		sendError(c, "Option cannot be empty")
 		return
 	}
 
 	err := hub.SqlStore.ChangeOption(c.User.UserID, c.RoomID, msg.Content)
 	if err != nil {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Failed to create option",
-		}
-		c.Send <- errorMsg
+		sendError(c, "Failed to create option")
 		return
 	}
 
 	fullRoomStateMsg, err := hub.SqlStore.GetFullRoomState(c.RoomID)
 	if err != nil {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Failed to get room state",
-		}
-		c.Send <- errorMsg
+		sendError(c, "Failed to get room state")
 		return
 	}
 
@@ -120,40 +110,19 @@ func (c *Client) handleAddOption(hub *Hub, msg AddOptionMessage) {
 
 func (c *Client) handleVote(hub *Hub, msg VoteMessage) {
 	if msg.OptionID == "" {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Content cannot be empty",
-		}
-		c.Send <- errorMsg
+		sendError(c, "Option cannot be empty")
 		return
 	}
 
 	err := hub.SqlStore.ChangeVote(c.User.UserID, msg.OptionID)
 	if err != nil {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Failed to create vote",
-		}
-		c.Send <- errorMsg
+		sendError(c, "Failed to create vote")
 		return
 	}
 
 	fullRoomStateMsg, err := hub.SqlStore.GetFullRoomState(c.RoomID)
 	if err != nil {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Failed to get room state",
-		}
-		c.Send <- errorMsg
+		sendError(c, "Failed to get room state")
 		return
 	}
 
@@ -167,15 +136,7 @@ func (c *Client) handleVote(hub *Hub, msg VoteMessage) {
 func (c *Client) handleRevealVotes(hub *Hub) {
 	fullRoomStateMsg, err := hub.SqlStore.GetFullRoomState(c.RoomID)
 	if err != nil {
-		errorMsg := struct {
-			Type    string `json:"type"`
-			Message string `json:"message"`
-		}{
-			Type:    "error",
-			Message: "Failed to get room state",
-		}
-		c.Send <- errorMsg
-		return
+		sendError(c, "Failed to get room state")
 	}
 	fullRoomStateMsg.RevealVotes = true
 	hub.Broadcast <- BroadcastMessage{
